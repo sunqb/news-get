@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     openai_max_tokens: int = 4096
     openai_temperature: float = 0.7
 
+    # 时区配置（用于定时任务调度）
+    timezone: str = "Asia/Shanghai"
+
     class Config:
         env_file = ".env"
 

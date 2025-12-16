@@ -1,24 +1,28 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from sqlalchemy import select
 from app.models.models import Task, TaskExecution, FrequencyType
 from app.core.database import async_session_maker
+from app.core.config import get_settings
 from app.services.email_service import send_task_result
 from app.services.ai_service import ai_service
 
 
 class SchedulerService:
     def __init__(self):
-        self.scheduler = AsyncIOScheduler()
+        settings = get_settings()
+        self.timezone = ZoneInfo(settings.timezone)
+        self.scheduler = AsyncIOScheduler(timezone=self.timezone)
         self._task_emails: dict[int, str] = {}  # task_id -> user_email
 
     def start(self):
         """启动调度器"""
         if not self.scheduler.running:
             self.scheduler.start()
-            print("[Scheduler] 调度器已启动")
+            print(f"[Scheduler] 调度器已启动，时区: {self.timezone}")
 
     def shutdown(self):
         """停止调度器"""
@@ -48,40 +52,40 @@ class SchedulerService:
             if task.scheduled_date:
                 # 使用用户指定的日期
                 year, month, day = map(int, task.scheduled_date.split("-"))
-                run_date = datetime(year, month, day, hour, minute, 0)
+                run_date = datetime(year, month, day, hour, minute, 0, tzinfo=self.timezone)
             else:
                 # 未指定日期时，使用当前日期
-                now = datetime.now()
+                now = datetime.now(self.timezone)
                 run_date = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 if run_date <= now:
                     from datetime import timedelta
                     run_date += timedelta(days=1)
-            return DateTrigger(run_date=run_date)
+            return DateTrigger(run_date=run_date, timezone=self.timezone)
 
         elif task.frequency == FrequencyType.DAILY:
-            return CronTrigger(hour=hour, minute=minute)
+            return CronTrigger(hour=hour, minute=minute, timezone=self.timezone)
 
         elif task.frequency == FrequencyType.WEEKLY:
             # 每周执行，使用用户指定的星期几
             day_of_week = task.day_of_week or "mon"
-            return CronTrigger(day_of_week=day_of_week, hour=hour, minute=minute)
+            return CronTrigger(day_of_week=day_of_week, hour=hour, minute=minute, timezone=self.timezone)
 
         elif task.frequency == FrequencyType.MONTHLY:
             # 每月指定日期执行
             day = task.day_of_month or 1
-            return CronTrigger(day=day, hour=hour, minute=minute)
+            return CronTrigger(day=day, hour=hour, minute=minute, timezone=self.timezone)
 
         elif task.frequency == FrequencyType.YEARLY:
             # 每年指定日期执行
             if task.scheduled_date:
                 # 解析日期，提取月和日
                 _, month, day = map(int, task.scheduled_date.split("-"))
-                return CronTrigger(month=month, day=day, hour=hour, minute=minute)
+                return CronTrigger(month=month, day=day, hour=hour, minute=minute, timezone=self.timezone)
             else:
                 # 默认1月1日
-                return CronTrigger(month=1, day=1, hour=hour, minute=minute)
+                return CronTrigger(month=1, day=1, hour=hour, minute=minute, timezone=self.timezone)
 
-        return CronTrigger(hour=hour, minute=minute)
+        return CronTrigger(hour=hour, minute=minute, timezone=self.timezone)
 
     async def add_task(self, task: Task, user_email: str):
         """添加任务到调度器"""
@@ -116,8 +120,9 @@ class SchedulerService:
                 if db_task:
                     db_task.next_run = job.next_run_time
                     await db.commit()
-
-        print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id})")
+            print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id}), 下次执行: {job.next_run_time}")
+        else:
+            print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id}), 无下次执行时间")
 
     async def update_task(self, task: Task, user_email: str):
         """更新调度器中的任务"""
