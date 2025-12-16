@@ -64,11 +64,15 @@
     <!-- 底部进度指示 -->
     <div v-if="activeTasks.length > 0" class="progress-indicator">
       <div class="progress-ring" style="width: 32px; height: 32px; border-width: 2px"></div>
-      <div>
+      <div style="flex: 1">
         <div style="font-weight: 500">{{ activeTasks.length }}个任务进行中</div>
         <div style="font-size: 12px; color: #666">
           共 {{ tasks.length }} 个任务
         </div>
+      </div>
+      <div v-if="nextRunTime" style="text-align: right; font-size: 12px; color: #666">
+        <div>下一次执行时间</div>
+        <div style="font-weight: 500; color: #333">{{ formatNextRun(nextRunTime) }}</div>
       </div>
     </div>
 
@@ -117,6 +121,18 @@ const user = computed(() => authStore.user)
 
 const activeTasks = computed(() => tasks.value.filter(t => t.is_active))
 
+// 计算最近的下次执行时间
+const nextRunTime = computed(() => {
+  const activeWithNextRun = activeTasks.value.filter(t => t.next_run)
+  if (activeWithNextRun.length === 0) return null
+
+  // 找到最近的执行时间
+  const sorted = [...activeWithNextRun].sort((a, b) =>
+    new Date(a.next_run) - new Date(b.next_run)
+  )
+  return sorted[0].next_run
+})
+
 onMounted(async () => {
   await taskStore.fetchTasks()
 })
@@ -140,6 +156,26 @@ function formatTime(dateStr) {
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
 
   return date.toLocaleDateString('zh-CN')
+}
+
+function formatNextRun(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = date - now  // 注意：这是未来时间，所以是 date - now
+
+  if (diff < 0) return '即将执行'
+  if (diff < 60000) return '不到1分钟后'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟后`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时后`
+
+  // 超过24小时显示具体日期时间
+  return date.toLocaleString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 function editTask(task) {

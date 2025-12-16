@@ -55,8 +55,11 @@ async def create_task(
     await db.commit()
     await db.refresh(task)
 
-    # 添加到调度器
+    # 添加到调度器（会更新 next_run）
     await scheduler_service.add_task(task, current_user.email)
+
+    # 重新获取任务以包含更新后的 next_run
+    await db.refresh(task)
 
     return task
 
@@ -111,8 +114,11 @@ async def update_task(
     await db.commit()
     await db.refresh(task)
 
-    # 更新调度器中的任务
+    # 更新调度器中的任务（会更新 next_run）
     await scheduler_service.update_task(task, current_user.email)
+
+    # 重新获取任务以包含更新后的 next_run
+    await db.refresh(task)
 
     return task
 
@@ -172,8 +178,13 @@ async def toggle_task(
     # 更新调度器
     if task.is_active:
         await scheduler_service.add_task(task, current_user.email)
+        # 重新获取任务以包含更新后的 next_run
+        await db.refresh(task)
     else:
         await scheduler_service.remove_task(task_id)
+        task.next_run = None
+        await db.commit()
+        await db.refresh(task)
 
     return task
 
