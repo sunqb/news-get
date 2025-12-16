@@ -28,89 +28,84 @@
 
 ```
 news-get/
+├── Dockerfile                    # 🚀 单容器部署（前后端合并，推荐）
+├── docker-compose.yml            # Docker编排配置
+├── .env.example                  # 环境变量模板
+│
 ├── backend/                      # 后端服务
+│   ├── Dockerfile                # 后端独立部署用
 │   ├── app/
 │   │   ├── api/                  # API路由
-│   │   │   ├── auth.py           # 认证接口（发送验证码、验证登录）
+│   │   │   ├── auth.py           # 认证接口
 │   │   │   └── tasks.py          # 任务CRUD接口
 │   │   ├── core/                 # 核心模块
 │   │   │   ├── config.py         # 配置管理
 │   │   │   ├── database.py       # 数据库连接
 │   │   │   └── security.py       # JWT认证
 │   │   ├── models/               # 数据模型
-│   │   │   └── models.py         # User, Task, VerificationCode
 │   │   ├── schemas/              # Pydantic模式
-│   │   │   └── schemas.py        # 请求/响应模式
 │   │   ├── services/             # 业务服务
 │   │   │   ├── ai_service.py     # AI服务（OpenAI兼容）
 │   │   │   ├── email_service.py  # 邮件发送服务
-│   │   │   └── scheduler_service.py  # 定时任务调度
+│   │   │   └── scheduler_service.py
 │   │   └── main.py               # 应用入口
-│   ├── requirements.txt          # Python依赖
-│   ├── Dockerfile                # 后端Docker镜像
-│   └── .env.example              # 环境变量示例
+│   ├── requirements.txt
+│   └── .env.example
 │
 ├── frontend/                     # 前端应用
+│   ├── Dockerfile                # 前端独立部署用（nginx）
+│   ├── nginx.conf                # Nginx配置（独立部署时使用）
 │   ├── src/
 │   │   ├── components/           # Vue组件
-│   │   │   ├── Login.vue         # 登录页面
-│   │   │   ├── TaskList.vue      # 任务列表
-│   │   │   ├── TaskModal.vue     # 任务创建/编辑模态框
-│   │   │   └── Toast.vue         # 全局提示组件
 │   │   ├── composables/          # Vue组合式函数
-│   │   │   └── useToast.js       # Toast提示逻辑
 │   │   ├── stores/               # Pinia状态管理
-│   │   │   └── index.js          # Auth和Task状态
 │   │   ├── api/                  # API调用
-│   │   │   └── index.js          # Axios封装
-│   │   ├── assets/               # 静态资源
-│   │   │   └── style.css         # 全局样式
-│   │   ├── App.vue               # 根组件
-│   │   └── main.js               # 入口文件
-│   ├── package.json              # npm依赖
-│   ├── vite.config.js            # Vite配置
-│   ├── Dockerfile                # 前端Docker镜像
-│   ├── nginx.conf                # Nginx配置
-│   └── .env.example              # 前端环境变量示例
+│   │   └── assets/               # 静态资源
+│   ├── package.json
+│   └── vite.config.js
 │
-├── docker-compose.yml            # Docker编排
-├── .env.example                  # 环境变量模板
-├── start-backend.sh              # 后端启动脚本
-└── start-frontend.sh             # 前端启动脚本
+├── start-backend.sh              # 后端启动脚本（本地开发）
+└── start-frontend.sh             # 前端启动脚本（本地开发）
 ```
 
 ## 快速开始
 
-### 方式一：Docker 部署（推荐）
+### 方式一：单容器部署（推荐）⭐
 
-**1. 克隆项目并配置环境变量**
+使用根目录的 `Dockerfile`，前后端合并到一个容器，部署最简单。
+
+**1. 克隆项目并配置**
 
 ```bash
+git clone https://github.com/sunqb/news-get.git
 cd news-get
 cp .env.example .env
 ```
 
-**2. 编辑 `.env` 文件，填写邮件配置**
+**2. 编辑 `.env` 文件**
 
 ```bash
+# 端口配置
+PORT=8000
+
+# JWT密钥（生产环境必须修改）
+SECRET_KEY=your-super-secret-key
+
 # 邮件配置（必填）
 SMTP_HOST=smtp.qq.com
 SMTP_PORT=587
 SMTP_USER=your-email@qq.com
-SMTP_PASSWORD=your-smtp-password   # QQ邮箱使用授权码
+SMTP_PASSWORD=your-smtp-password
 SMTP_FROM=your-email@qq.com
 SMTP_TLS=true
 
-# 安全密钥（生产环境必须修改）
-SECRET_KEY=your-super-secret-key-change-this-in-production
-
-# AI服务配置（可选，支持OpenAI兼容API）
+# AI服务配置（可选）
 OPENAI_API_KEY=your-api-key
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-**3. 构建并启动服务**
+**3. 构建并启动**
 
 ```bash
 docker-compose up -d --build
@@ -118,30 +113,34 @@ docker-compose up -d --build
 
 **4. 访问应用**
 
-- 前端界面：http://localhost
-- 后端API：http://localhost:8000
+- 应用地址：http://localhost:8000
 - API文档：http://localhost:8000/docs
 
 **5. 常用命令**
 
 ```bash
-# 查看日志
-docker-compose logs -f
-
-# 查看服务状态
-docker-compose ps
-
-# 停止服务
-docker-compose down
-
-# 重启服务
-docker-compose restart
-
-# 重新构建并启动
-docker-compose up -d --build
+docker-compose logs -f      # 查看日志
+docker-compose ps           # 查看状态
+docker-compose down         # 停止服务
+docker-compose up -d --build  # 重新构建
 ```
 
-### 方式二：本地开发
+---
+
+### 方式二：双容器部署（高级）
+
+使用 `frontend/Dockerfile` 和 `backend/Dockerfile` 分别部署，适合需要独立扩展前后端的场景。
+
+> ⚠️ 此方式需要配置 nginx 代理，配置较复杂，一般情况推荐使用方式一。
+
+**特点**：
+- 前端使用 nginx 提供静态文件
+- 后端独立运行 FastAPI
+- 需要配置 nginx 反向代理 `/api` 到后端
+
+---
+
+### 方式三：本地开发
 
 #### 后端
 
@@ -304,13 +303,13 @@ curl -X POST http://localhost:8000/api/tasks \
 
 SQLite 数据库文件位于：
 - 本地开发：`backend/app.db`
-- Docker部署：`backend-data` 卷中的 `app.db`
+- Docker部署：`app-data` 卷中的 `data/app.db`
 
 ### 查看数据库
 
 ```bash
-# 进入后端容器
-docker exec -it news-task-backend sh
+# 进入容器
+docker exec -it news-task sh
 
 # 使用 sqlite3 查看数据
 sqlite3 /app/data/app.db
@@ -379,7 +378,7 @@ async def _process_task_prompt(self, prompt: str, expert_mode: bool) -> str:
 
 **Q: Docker 启动失败？**
 - 确保 Docker 和 Docker Compose 已安装
-- 检查端口 80 和 8000 是否被占用
+- 检查端口是否被占用（默认8000）
 - 查看日志：`docker-compose logs`
 
 **Q: 任务没有执行？**
