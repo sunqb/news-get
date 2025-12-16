@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: news-task-backend
+    restart: unless-stopped
+    environment:
+      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:///./data/app.db
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-this}
+      - SMTP_HOST=${SMTP_HOST:-smtp.qq.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_TLS=${SMTP_TLS:-true}
+      - CORS_ORIGINS=["http://localhost","http://localhost:80"]
+    volumes:
+      - backend-data:/code/data
+    ports:
+      - "8000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: news-task-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
