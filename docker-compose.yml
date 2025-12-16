@@ -1,46 +1,32 @@
+# 单容器部署
+# 使用方法:
+#   1. cp .env.example .env
+#   2. 编辑 .env 填写配置
+#   3. docker-compose up -d --build
+
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: news-task-backend
+  app:
+    build: .
+    container_name: news-task
     restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
     environment:
       - DEBUG=false
       - DATABASE_URL=sqlite+aiosqlite:///./data/app.db
-      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-this}
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
       - SMTP_HOST=${SMTP_HOST:-smtp.qq.com}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=${SMTP_FROM}
       - SMTP_TLS=${SMTP_TLS:-true}
-      - CORS_ORIGINS=["http://localhost","http://localhost:80"]
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - CORS_ORIGINS=["*"]
     volumes:
-      - backend-data:/code/data
-    ports:
-      - "8000:80"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: news-task-frontend
-    restart: unless-stopped
-    environment:
-      # 后端API地址（运行时配置）
-      # 默认使用Docker内部网络: http://backend:80
-      # 如果需要外部访问，设置为: http://your-server-ip:9000
-      - BACKEND_URL=${BACKEND_URL:-http://backend:80}
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+      - app-data:/app/data
 
 volumes:
-  backend-data:
+  app-data:
