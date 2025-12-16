@@ -39,10 +39,22 @@
           <div v-if="form.frequency === 'once'" class="schedule-config">
             <div class="config-row">
               <span class="config-label">时间</span>
-              <input v-model="form.scheduled_time" type="time" class="config-input" />
+              <TimePicker v-model="form.scheduled_time" />
             </div>
             <div class="config-row">
-              <input v-model="form.scheduled_date" type="date" class="config-input date-input" />
+              <span class="config-label">日期</span>
+              <div style="margin-left: auto;">
+                <VueDatePicker
+                  :key="'once-' + form.frequency"
+                  v-model="dateValue"
+                  :enable-time-picker="false"
+                  :formats="{ input: 'yyyy-MM-dd' }"
+                  auto-apply
+                  :clearable="false"
+                  :teleport="true"
+                  hide-input-icon
+                />
+              </div>
             </div>
           </div>
 
@@ -50,7 +62,7 @@
           <div v-else-if="form.frequency === 'daily'" class="schedule-config">
             <div class="config-row">
               <span class="config-label">时间</span>
-              <input v-model="form.scheduled_time" type="time" class="config-input" />
+              <TimePicker v-model="form.scheduled_time" />
             </div>
           </div>
 
@@ -58,9 +70,10 @@
           <div v-else-if="form.frequency === 'weekly'" class="schedule-config">
             <div class="config-row">
               <span class="config-label">时间</span>
-              <input v-model="form.scheduled_time" type="time" class="config-input" />
+              <TimePicker v-model="form.scheduled_time" />
             </div>
             <div class="config-row">
+              <span class="config-label">星期</span>
               <select v-model="form.day_of_week" class="config-select">
                 <option v-for="day in weekDays" :key="day.value" :value="day.value">
                   {{ day.label }}
@@ -73,29 +86,44 @@
           <div v-else-if="form.frequency === 'monthly'" class="schedule-config">
             <div class="config-row">
               <span class="config-label">时间</span>
-              <input v-model="form.scheduled_time" type="time" class="config-input" />
+              <TimePicker v-model="form.scheduled_time" />
             </div>
             <div class="config-row">
-              <span class="config-label-small">每月运行日期：</span>
-              <input
-                v-model.number="form.day_of_month"
-                type="number"
-                min="1"
-                max="31"
-                class="config-input number-input"
-              />
+              <span class="config-label">日期</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #666; font-size: 13px;">每月</span>
+                <input
+                  v-model.number="form.day_of_month"
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="config-input number-input"
+                />
+                <span style="color: #666; font-size: 13px;">日</span>
+              </div>
             </div>
-            <div class="config-hint">将在最接近的日期运行</div>
           </div>
 
           <!-- 每年：日期 + 时间 -->
           <div v-else-if="form.frequency === 'yearly'" class="schedule-config">
             <div class="config-row">
               <span class="config-label">时间</span>
-              <input v-model="form.scheduled_time" type="time" class="config-input" />
+              <TimePicker v-model="form.scheduled_time" />
             </div>
             <div class="config-row">
-              <input v-model="form.scheduled_date" type="date" class="config-input date-input" />
+              <span class="config-label">日期</span>
+              <div style="margin-left: auto;">
+                <VueDatePicker
+                  :key="'yearly-' + form.frequency"
+                  v-model="dateValue"
+                  :enable-time-picker="false"
+                  :formats="{ input: 'yyyy-MM-dd' }"
+                  auto-apply
+                  :clearable="false"
+                  :teleport="true"
+                  hide-input-icon
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -143,7 +171,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import TimePicker from './TimePicker.vue'
+import { VueDatePicker } from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
 
 const props = defineProps({
   task: {
@@ -191,6 +222,22 @@ const canSubmit = computed(() => {
   return form.value.name.trim() && form.value.prompt.trim()
 })
 
+// 日期值转换：VueDatePicker 使用 Date 对象，表单使用 YYYY-MM-DD 字符串
+const dateValue = computed({
+  get() {
+    if (!form.value.scheduled_date) return new Date()
+    return new Date(form.value.scheduled_date)
+  },
+  set(val) {
+    if (val) {
+      const year = val.getFullYear()
+      const month = String(val.getMonth() + 1).padStart(2, '0')
+      const day = String(val.getDate()).padStart(2, '0')
+      form.value.scheduled_date = `${year}-${month}-${day}`
+    }
+  }
+})
+
 onMounted(() => {
   if (props.task) {
     form.value = {
@@ -236,6 +283,8 @@ async function handleTest() {
 
 .config-label {
   color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .config-label-small {
@@ -261,12 +310,8 @@ async function handleTest() {
   padding: 4px 8px;
 }
 
-.date-input {
-  cursor: pointer;
-}
-
 .number-input {
-  width: 60px;
+  width: 50px;
   text-align: center;
   padding: 4px 8px;
   border: 1px solid #e0e0e0;
@@ -297,5 +342,17 @@ async function handleTest() {
   font-size: 12px;
   color: #e74c3c;
   font-weight: normal;
+}
+</style>
+
+<style>
+/* VueDatePicker 样式覆盖 */
+.dp__main {
+  margin-left: auto !important;
+}
+
+.dp__menu {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
 }
 </style>
