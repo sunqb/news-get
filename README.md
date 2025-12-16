@@ -10,6 +10,9 @@
 - **定时执行**：自定义任务执行时间
 - **专家模式**：可选的高级任务模式
 - **邮件通知**：任务执行结果通过邮件发送
+- **AI服务集成**：支持OpenAI兼容的API（包括本地LLM）
+- **任务测试**：一键测试任务执行效果，实时预览AI响应
+- **Toast通知**：优雅的操作反馈提示
 
 ## 技术栈
 
@@ -39,6 +42,7 @@ news-get/
 │   │   ├── schemas/              # Pydantic模式
 │   │   │   └── schemas.py        # 请求/响应模式
 │   │   ├── services/             # 业务服务
+│   │   │   ├── ai_service.py     # AI服务（OpenAI兼容）
 │   │   │   ├── email_service.py  # 邮件发送服务
 │   │   │   └── scheduler_service.py  # 定时任务调度
 │   │   └── main.py               # 应用入口
@@ -51,7 +55,10 @@ news-get/
 │   │   ├── components/           # Vue组件
 │   │   │   ├── Login.vue         # 登录页面
 │   │   │   ├── TaskList.vue      # 任务列表
-│   │   │   └── TaskModal.vue     # 任务创建/编辑模态框
+│   │   │   ├── TaskModal.vue     # 任务创建/编辑模态框
+│   │   │   └── Toast.vue         # 全局提示组件
+│   │   ├── composables/          # Vue组合式函数
+│   │   │   └── useToast.js       # Toast提示逻辑
 │   │   ├── stores/               # Pinia状态管理
 │   │   │   └── index.js          # Auth和Task状态
 │   │   ├── api/                  # API调用
@@ -63,7 +70,8 @@ news-get/
 │   ├── package.json              # npm依赖
 │   ├── vite.config.js            # Vite配置
 │   ├── Dockerfile                # 前端Docker镜像
-│   └── nginx.conf                # Nginx配置
+│   ├── nginx.conf                # Nginx配置
+│   └── .env.example              # 前端环境变量示例
 │
 ├── docker-compose.yml            # Docker编排
 ├── .env.example                  # 环境变量模板
@@ -95,6 +103,11 @@ SMTP_TLS=true
 
 # 安全密钥（生产环境必须修改）
 SECRET_KEY=your-super-secret-key-change-this-in-production
+
+# AI服务配置（可选，支持OpenAI兼容API）
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 **3. 构建并启动服务**
@@ -193,6 +206,7 @@ npm run dev
 | PUT | `/api/tasks/{id}` | 更新任务 |
 | DELETE | `/api/tasks/{id}` | 删除任务 |
 | POST | `/api/tasks/{id}/toggle` | 切换任务状态 |
+| POST | `/api/tasks/{id}/test` | 测试任务执行 |
 | GET | `/api/tasks/{id}/executions` | 获取执行历史 |
 
 ### 请求示例
@@ -305,23 +319,40 @@ SELECT * FROM users;
 SELECT * FROM tasks;
 ```
 
-## 扩展开发
+## AI 服务配置
 
-### 接入 AI 服务
+系统已内置 OpenAI 兼容的 AI 服务支持。配置方式如下：
 
-在 `backend/app/services/scheduler_service.py` 的 `_process_task_prompt` 方法中，可以接入实际的 AI 服务：
+### OpenAI
 
-```python
-async def _process_task_prompt(self, prompt: str, expert_mode: bool) -> str:
-    # 示例：接入 OpenAI
-    import openai
-    client = openai.AsyncOpenAI(api_key="your-api-key")
-    response = await client.chat.completions.create(
-        model="gpt-4" if expert_mode else "gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
+```env
+OPENAI_API_KEY=sk-xxxxxxxx
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+### 本地 LLM（如 Ollama）
+
+```env
+OPENAI_API_KEY=ollama
+OPENAI_BASE_URL=http://localhost:11434/v1/
+OPENAI_MODEL=llama2
+```
+
+### 其他兼容服务（如 DeepSeek）
+
+```env
+OPENAI_API_KEY=your-deepseek-key
+OPENAI_BASE_URL=https://api.deepseek.com/
+OPENAI_MODEL=deepseek-chat
+```
+
+**说明**：
+- AI 服务为可选配置，未配置时任务测试会返回提示信息
+- 系统提示词会自动包含当前时间（北京时间）
+- 支持普通模式和专家模式两种对话风格
+
+## 扩展开发
 
 ### 接入新闻 API
 
