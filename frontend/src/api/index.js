@@ -1,7 +1,12 @@
 import axios from 'axios'
 
+// 支持通过环境变量配置API地址
+// 开发模式：使用 Vite 代理，baseURL 为 /api
+// 生产模式：如果设置了 VITE_API_BASE_URL，则使用完整地址
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   timeout: 10000,
 })
 

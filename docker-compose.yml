@@ -30,6 +30,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # 如果不使用nginx代理，需要设置后端API完整地址
+        # 示例：VITE_API_BASE_URL=http://your-server:9000/api
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     container_name: news-task-frontend
     restart: unless-stopped
     ports:
