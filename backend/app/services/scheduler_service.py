@@ -142,6 +142,8 @@ class SchedulerService:
     async def _execute_task(self, task_id: int):
         """执行任务"""
         async with async_session_maker() as db:
+            from app.models.models import User
+
             result = await db.execute(select(Task).where(Task.id == task_id))
             task = result.scalar_one_or_none()
 
@@ -182,8 +184,15 @@ class SchedulerService:
 
                 # 发送邮件通知
                 user_email = self._task_emails.get(task_id)
+                # 如果内存中没有邮箱信息，从数据库查询
+                if not user_email:
+                    user_result = await db.execute(select(User.email).where(User.id == task.user_id))
+                    user_email = user_result.scalar_one_or_none()
+
                 if user_email:
                     await send_task_result(user_email, task.name, result_text)
+                else:
+                    print(f"[Scheduler] 未找到用户邮箱，跳过发送")
 
                 print(f"[Scheduler] 任务执行成功: {task.name}")
 
