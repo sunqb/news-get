@@ -50,6 +50,7 @@ async def create_task(
         day_of_month=task_data.day_of_month,
         prompt=task_data.prompt,
         expert_mode=task_data.expert_mode,
+        timezone=task_data.timezone or "Asia/Shanghai",  # 默认东八区
     )
     db.add(task)
     await db.commit()

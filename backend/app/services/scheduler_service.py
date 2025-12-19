@@ -14,15 +14,25 @@ from app.services.ai_service import ai_service
 class SchedulerService:
     def __init__(self):
         settings = get_settings()
-        self.timezone = ZoneInfo(settings.timezone)
-        self.scheduler = AsyncIOScheduler(timezone=self.timezone)
+        self.default_timezone = ZoneInfo(settings.timezone)  # 默认时区
+        self.scheduler = AsyncIOScheduler(timezone=self.default_timezone)
         self._task_emails: dict[int, str] = {}  # task_id -> user_email
+
+    def _get_task_timezone(self, task: Task) -> ZoneInfo:
+        """获取任务的时区，如果未指定则使用默认时区"""
+        if task.timezone:
+            try:
+                return ZoneInfo(task.timezone)
+            except Exception:
+                print(f"[Scheduler] 无效时区 '{task.timezone}'，使用默认时区")
+                return self.default_timezone
+        return self.default_timezone
 
     def start(self):
         """启动调度器"""
         if not self.scheduler.running:
             self.scheduler.start()
-            print(f"[Scheduler] 调度器已启动，时区: {self.timezone}")
+            print(f"[Scheduler] 调度器已启动，默认时区: {self.default_timezone}")
 
     def shutdown(self):
         """停止调度器"""
@@ -46,46 +56,47 @@ class SchedulerService:
     def _get_trigger(self, task: Task):
         """根据任务频率获取触发器"""
         hour, minute = map(int, task.scheduled_time.split(":"))
+        task_tz = self._get_task_timezone(task)  # 使用任务时区
 
         if task.frequency == FrequencyType.ONCE:
             # 一次性任务：使用日期触发器
             if task.scheduled_date:
                 # 使用用户指定的日期
                 year, month, day = map(int, task.scheduled_date.split("-"))
-                run_date = datetime(year, month, day, hour, minute, 0, tzinfo=self.timezone)
+                run_date = datetime(year, month, day, hour, minute, 0, tzinfo=task_tz)
             else:
                 # 未指定日期时，使用当前日期
-                now = datetime.now(self.timezone)
+                now = datetime.now(task_tz)
                 run_date = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 if run_date <= now:
                     from datetime import timedelta
                     run_date += timedelta(days=1)
-            return DateTrigger(run_date=run_date, timezone=self.timezone)
+            return DateTrigger(run_date=run_date, timezone=task_tz)
 
         elif task.frequency == FrequencyType.DAILY:
-            return CronTrigger(hour=hour, minute=minute, timezone=self.timezone)
+            return CronTrigger(hour=hour, minute=minute, timezone=task_tz)
 
         elif task.frequency == FrequencyType.WEEKLY:
             # 每周执行，使用用户指定的星期几
             day_of_week = task.day_of_week or "mon"
-            return CronTrigger(day_of_week=day_of_week, hour=hour, minute=minute, timezone=self.timezone)
+            return CronTrigger(day_of_week=day_of_week, hour=hour, minute=minute, timezone=task_tz)
 
         elif task.frequency == FrequencyType.MONTHLY:
             # 每月指定日期执行
             day = task.day_of_month or 1
-            return CronTrigger(day=day, hour=hour, minute=minute, timezone=self.timezone)
+            return CronTrigger(day=day, hour=hour, minute=minute, timezone=task_tz)
 
         elif task.frequency == FrequencyType.YEARLY:
             # 每年指定日期执行
             if task.scheduled_date:
                 # 解析日期，提取月和日
                 _, month, day = map(int, task.scheduled_date.split("-"))
-                return CronTrigger(month=month, day=day, hour=hour, minute=minute, timezone=self.timezone)
+                return CronTrigger(month=month, day=day, hour=hour, minute=minute, timezone=task_tz)
             else:
                 # 默认1月1日
-                return CronTrigger(month=1, day=1, hour=hour, minute=minute, timezone=self.timezone)
+                return CronTrigger(month=1, day=1, hour=hour, minute=minute, timezone=task_tz)
 
-        return CronTrigger(hour=hour, minute=minute, timezone=self.timezone)
+        return CronTrigger(hour=hour, minute=minute, timezone=task_tz)
 
     async def add_task(self, task: Task, user_email: str):
         """添加任务到调度器"""
@@ -120,7 +131,8 @@ class SchedulerService:
                 if db_task:
                     db_task.next_run = job.next_run_time
                     await db.commit()
-            print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id}), 下次执行: {job.next_run_time}")
+            task_tz = self._get_task_timezone(task)
+            print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id}), 时区: {task_tz}, 下次执行: {job.next_run_time}")
         else:
             print(f"[Scheduler] 已添加任务: {task.name} (ID: {task.id}), 无下次执行时间")
 

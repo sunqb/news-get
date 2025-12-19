@@ -185,6 +185,9 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit', 'test'])
 
+// 获取浏览器本地时区
+const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
 const frequencies = [
   { label: '一次', value: 'once' },
   { label: '每天', value: 'daily' },
@@ -214,6 +217,7 @@ const form = ref({
   day_of_month: 1,
   prompt: '',
   expert_mode: false,
+  timezone: localTimezone,  // 用户本地时区
 })
 
 const isEdit = computed(() => !!props.task)
@@ -249,6 +253,7 @@ onMounted(() => {
       day_of_month: props.task.day_of_month || 1,
       prompt: props.task.prompt,
       expert_mode: props.task.expert_mode,
+      timezone: props.task.timezone || localTimezone,  // 编辑时使用任务时区，无则使用本地时区
     }
   }
 })

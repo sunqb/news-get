@@ -39,6 +39,7 @@ class TaskCreate(BaseModel):
     day_of_month: int | None = None  # 1-31，用于monthly
     prompt: str
     expert_mode: bool = False
+    timezone: str | None = None  # 用户时区，如 Asia/Shanghai
 
 
 class TaskUpdate(BaseModel):
@@ -51,6 +52,7 @@ class TaskUpdate(BaseModel):
     prompt: str | None = None
     expert_mode: bool | None = None
     is_active: bool | None = None
+    timezone: str | None = None  # 用户时区
 
 
 class TaskResponse(BaseModel):
@@ -64,6 +66,7 @@ class TaskResponse(BaseModel):
     prompt: str
     expert_mode: bool
     is_active: bool
+    timezone: str | None  # 用户时区
     created_at: datetime
     updated_at: datetime
     last_run: datetime | None
